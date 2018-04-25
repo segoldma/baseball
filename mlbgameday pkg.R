@@ -6,8 +6,26 @@
 # Install and load package from CRAN
 install.packages("mlbgameday")
 library(mlbgameday)
+library(dplyr)
+library(lubridate)
+library(skimr)
+
+yesterday()
 
 # View vignette
-vignettes(mlbgameday)
+?mlbgameday
 
-df <- get_payload(start = "2016-06-01", end = "2016-06-01")
+df <- get_payload(start = today()-1, end = today()-1)
+
+action <- df$atbat %>% 
+  group_by(event) %>% 
+  tally()
+
+
+# Skim the payload
+skim(df$atbat)
+skim(df$action)
+skim(df$pitch)
+skim(df$runner)
+skim(df$po)
+
