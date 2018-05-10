@@ -4,13 +4,56 @@ library(tibble)
 library(stringr)
 library(magrittr)
 library(readr)
+library(ggplot2)
 
+# Team Mappings -----------------------------------------------------------
+
+team_mappings <- data.frame(Tm = as.character(
+  c(
+    "ARI",  "ATL",  "BAL",  "BOS",
+    "CHC",  "CIN",  "CLE",  "COL",
+    "CHW",  "DET",  "HOU",  "KCR",
+    "LAA",  "LAD",  "MIA",  "MIL",
+    "MIN",  "NYM",  "NYY",  "OAK",
+    "PHI",  "PIT",  "SDP",   "SEA",
+    "SFG",   "STL",  "TBR",   "TEX",
+    "TOR",  "WAS"
+  )
+),
+Team =
+  as.character(
+    c(
+      "Diamondbacks",  "Braves",
+      "Orioles",  "Red Sox",
+      "Cubs",  "Reds",
+      "Indians",  "Rockies",
+      "White Sox", "Tigers",
+      "Astros",  "Royals",
+      "Angels",   "Dodgers",
+      "Marlins",  "Brewers",
+      "Twins",   "Mets",
+      "Yankees", "Athletics",
+      "Phillies",  "Pirates",
+      "Padres",   "Mariners",
+      "Giants",  "Cardinals",
+      "Rays",   "Rangers",
+      "Jays", "Nationals"
+    )
+  )) %>%
+  mutate("Tm" = as.character(Tm),
+         "Team" = as.character(Team))
+
+
+
+
+ 
 
 # Get stats from Fangraphs ------------------------------------------------
 
 ## Get standard batting stats from fangraphs
-url <- read_html("https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=8&season=2018&month=0&season1=2018&ind=0&page=1_500") 
+url <- read_html("https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=8&season=2018&month=0&season1=2018&ind=0&team=&rost=&age=&filter=&players=&page=1_2000") 
 
+# Load batting dashboard
 batting <- html_nodes(url,".rgMasterTable") %>% 
   html_table() %>% 
   as.data.frame() 
@@ -22,7 +65,7 @@ batting <- batting %>%
   select(Name,Team,G, HR,R,RBI,SB,BsR) #keep counting stats that aren't in the advanced stats table
   
 # Get advanced batting stats from fangraphs
-url_adv <- read_html("https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=y&type=1&season=2018&month=0&season1=2018&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_500")
+url_adv <- read_html("https://www.fangraphs.com/leaders.aspx?pos=all&stats=bat&lg=all&qual=0&type=1&season=2018&month=0&season1=2018&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_2000")
 
 adv_batting_fangraphs <- html_nodes(url_adv,".rgMasterTable") %>% 
   html_table() %>% 
@@ -48,6 +91,7 @@ batting_stats %<>% mutate_at(dbl_cols, funs(as.numeric(.)))
 
 # Pitch Type and Pitch Value ----------------------------------------------
 
+# Load pitch type data from fangraphs (Pitchers)
 url_ptype <- read_html("https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=y&type=4&season=2018&month=0&season1=2018&ind=0&team=0&rost=0&age=0&filter=&players=0&page=1_150")
 
 pitch_type_pitchers <- html_nodes(url_ptype, ".rgMasterTable") %>% 
@@ -78,11 +122,6 @@ pitch_type_pitchers %>%
   arrange(desc(fb_rate))
 
 
-
-# Load Player Id Table ----------------------------------------------------
-
-player_ids <- read_csv("http://crunchtimebaseball.com/master.csv")
-
 # Get FD Salaries ---------------------------------------------------------
 
 rg_fanduel_hitters <-
@@ -99,7 +138,7 @@ rg_fanduel_hitters <-
       "var3"
     )
   ) %>% 
-  select(Name, Team, Salary)
+  select(Name, Team, Position, Salary)
 
 rg_fanduel_pitchers <-
   read_csv(
@@ -115,27 +154,47 @@ rg_fanduel_pitchers <-
       "var3"
     )
   ) %>% 
-  select(Name, Team, Salary)
+  select(Name, Team, Position, Salary)
 
-batting_stats %>% 
-  left_join(rg_fanduel_hitters, by = "Name") %>% View()
-
+rg_fanduel_salaries <- bind_rows(rg_fanduel_hitters, rg_fanduel_pitchers) %>% 
+  left_join(team_mappings, by = c("Team" = "Tm")) %>% 
+  rename("Tm" = Team,
+         "Team" = `Team.y`)
 
 # Clean up workplace
 rm(list=c("batting", "adv_batting_fangraphs", "url", "url_adv", "url_ptype", "dbl_cols", "url_fd"))
 
-pnames <- player_ids %>% 
-  select(ends_with("name")) %>% 
-  mutate("mlb" = ifelse(mlb_name %in% batting_stats$Name,1,0),
-         "bref" = ifelse(bref_name %in% batting_stats$Name,1,0),
-         "cbs" = ifelse(cbs_name %in% batting_stats$Name,1,0),
-         "espn" = ifelse(espn_name %in% batting_stats$Name,1,0),
-         "fg" = ifelse(fg_name %in% batting_stats$Name,1,0),
-         "nfbc" = ifelse(nfbc_name %in% batting_stats$Name,1,0),
-         "retro" = ifelse(retro_name %in% batting_stats$Name,1,0),
-         "yahoo" = ifelse(yahoo_name %in% batting_stats$Name,1,0),
-         "ott" = ifelse(ottoneu_name %in% batting_stats$Name,1,0),
-         "rotowire" = ifelse(rotowire_name %in% batting_stats$Name,1,0))
+# Combine the batting stats with fanduel salaries
+batting_stats <- batting_stats %>% 
+  inner_join(rg_fanduel_salaries, by = c("Name", "Team")) 
 
-pnames %>% 
-  summarise_at(vars(mlb,bref,cbs,espn,fg,nfbc,retro,yahoo,ott,rotowire), sum)
+## Average price per position
+batting_stats %>% 
+  group_by(Position) %>% 
+  summarise(mean(Salary))
+
+# wOBA vs. Salary
+batting_stats %>% 
+  filter(!Position == "P") %>% 
+  ggplot(aes(x = wOBA, y = Salary, label = Name)) +
+  geom_text() 
+
+# ISO vs. Salary
+batting_stats %>% 
+  filter(!Position == "P") %>% 
+  ggplot(aes(x = ISO, y = Salary, label = Name)) +
+  geom_text() 
+
+# Spd vs. Salary
+batting_stats %>% 
+  filter(!Position == "P") %>% 
+  ggplot(aes(x = Spd, y = Salary, label = Name)) +
+  geom_text() 
+
+# K/BB vs. Salary
+batting_stats %>% 
+  filter(!Position == "P") %>% 
+  ggplot(aes(x = `BB/K`, y = Salary, label = Name)) +
+  geom_text() 
+
+
