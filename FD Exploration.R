@@ -2,7 +2,7 @@ library(dplyr)
 library(readr)
 
 # Read in SaberSim data
-ss_batters <- read_csv("FanGraphs Leaderboard (5).csv") %>%  
+ss_batters <- read_csv("FanGraphs Leaderboard (6).csv") %>%  
   filter(!is.na(Game))
 
 # Read in sample FanDuel player list
@@ -32,8 +32,6 @@ stack_ranking <- ss_batters %>%
     left_join(stack_ranking, by = "Team") %>% 
     arrange(stack_rank) %>% View("top four batters by team")
   
-
-
 
 # Points per dollar
 ss_pitchers %>% 
