@@ -42,8 +42,7 @@ batting %>%
   geom_density(alpha=0.3) +
   facet_wrap(~Team) %>% 
   ggtitle("FPTS Density by Team (Qualified Players Only)") +
-  ggsave(paste0("FP Density by Team ", today()),device = png)
-
+  ggsave(paste0("FP Density by Team.png"))
 
 
 # Hit Density by Team
