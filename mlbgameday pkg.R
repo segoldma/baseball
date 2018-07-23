@@ -9,8 +9,7 @@ library(mlbgameday)
 library(dplyr)
 library(lubridate)
 library(skimr)
-
-yesterday()
+library(ggplot2)
 
 # View vignette
 ?mlbgameday
@@ -18,7 +17,7 @@ yesterday()
 df <- get_payload(start = today()-1, end = today()-1)
 
 action <- df$atbat %>% 
-  group_by(event) %>% 
+  group_by(pitcher_name,event) %>% 
   tally()
 
 
@@ -29,3 +28,8 @@ skim(df$pitch)
 skim(df$runner)
 skim(df$po)
 
+# Start Speed vs End Speed by pitch type
+df$pitch %>% 
+  ggplot(aes(x=start_speed,y=end_speed,color=type))+
+  geom_point() +
+  facet_wrap(~pitch_type,nrow = 4)
