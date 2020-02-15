@@ -1,0 +1,79 @@
+---
+title: "Fantasy Baseball Prep 2020"
+author: "Seth Goldman"
+date: "February 15, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(tidyverse)
+library(readr)
+
+all_rankings <- read_csv("./fantasy_2020/FantasyPros_Fantasy_Baseball_Rankings_ALL.csv")
+```
+```{r explore_all_rankings}
+all_rankings
+
+```
+
+```{r explore_hitter_projs}
+
+proj_hitters <- read_csv("./fantasy_2020/FantasyPros_2020_Projections_H.csv")
+
+
+proj_hitters
+
+# select scoring categories
+proj_hitters %>% 
+  select(Player,Team,Positions,R,HR,RBI,SB,OBP)
+
+
+```
+
+```{r explore_pitcher_projs}
+
+proj_pitchers <- read_csv("./fantasy_2020/FantasyPros_2020_Projections_P.csv")
+
+# select scoring categories (using IP as a proxy for QS)
+proj_pitchers %>% 
+  filter(Positions == "SP") %>% 
+  select(Player, Team, Positions, K, ERA, WHIP, SV, IP)
+  
+# Create Correlelogram for SP scoring categories
+sp_stat_correlations <- proj_pitchers %>%   
+    filter(Positions == "SP") %>% 
+  select(K, ERA, WHIP, IP) %>% 
+  cor()
+
+corrplot::corrplot(sp_stat_correlations,
+                   type = "lower",
+                   method = "number",
+                   title = "SP Scoring Category Correlations - Projections")
+
+
+
+# Create Correlelogram for RP scoring categories
+rp_stat_correlations <- proj_pitchers %>%   
+    filter(Positions == "RP") %>% 
+  select(K, ERA, WHIP, IP, SV) %>% 
+  cor()
+
+corrplot::corrplot(rp_stat_correlations,
+                   type = "lower",
+                   method = "number",
+                   title = "RP Scoring Category Correlations - Projections")
+
+
+```
+
+```{r explore 2019_season_results}
+
+# Get season stats and calculate fantasy scoring based on (5x5 OBP / QS league)
+
+
+```
+
+
+
