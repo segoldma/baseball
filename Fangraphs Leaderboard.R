@@ -4,6 +4,7 @@ library(tibble)
 library(stringr)
 library(magrittr)
 library(readr)
+library(lubridate)
 library(ggplot2)
 
 # Team Mappings -----------------------------------------------------------
@@ -178,6 +179,27 @@ batting_stats %>%
   filter(!Position == "P") %>% 
   ggplot(aes(x = wOBA, y = Salary, label = Name)) +
   geom_text() 
+
+
+# Top four wOBA by team vs. salary
+batting_stats %>% 
+  arrange(desc(wOBA)) %>% 
+  group_by(Team) %>% 
+  slice(1:4) %>% 
+  group_by(Team) %>% 
+  summarise("avg_wOBA" = mean(wOBA),
+            "avg_salary" = mean(Salary)) %>% 
+  ggplot(aes(x=avg_wOBA, y = avg_salary, label = Team)) +
+  geom_text() +
+  ggtitle(paste0("Team top-four players Avg wOBA vs. Avg Fanduel Salary ",today()))
+
+ss_batters %>% 
+  arrange(desc(FanDuel)) %>% 
+  group_by(Team) %>% 
+  slice(1:4) %>% 
+  group_by(Team) %>% 
+  summarise("xspts" = sum(FanDuel)) %>% 
+
 
 # ISO vs. Salary
 batting_stats %>% 
