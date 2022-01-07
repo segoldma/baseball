@@ -10,10 +10,16 @@ library(dplyr)
 library(lubridate)
 library(skimr)
 library(tidyr)
+library(ggplot2)
 
 # View vignette
 ?mlbgameday
 
+df <- get_payload(start = today()-1, end = today()-1)
+
+action <- df$atbat %>% 
+  group_by(pitcher_name,event) %>% 
+  tally()
 
 # payload <- get_payload(start = "2018-03-29", end = today()-1)
 
@@ -103,3 +109,10 @@ player_game %>%
   ggplot(aes(x=date, y=Pts, color = mlb_team)) +
   geom_line()+
   facet_wrap(~mlb_team)
+
+# Start Speed vs End Speed by pitch type
+df$pitch %>% 
+  ggplot(aes(x=start_speed,y=end_speed,color=type))+
+  geom_point() +
+  facet_wrap(~pitch_type,nrow = 4)
+
