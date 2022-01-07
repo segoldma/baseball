@@ -107,7 +107,28 @@ player_game %>%
   ggtitle("FanDuel Daily Pts (Batting Only)") +
   ggsave("FanDuel Daily Pts Per Team.png")
 
+player_game %>% 
+  filter(!is.na(mlb_team)&Pts < 30) %>% 
+  ggplot(aes(x=factor(week(date)), y=Pts, color = mlb_team)) +
+  geom_boxplot()+
+  facet_wrap(~mlb_team)+
+  theme(legend.position="none")+
+  ggtitle("FanDuel Weekly Pts (Batting Only)")
 
+
+# Nats vs. Dbacks
+
+player_game %>% 
+  filter((mlb_team %in% c("WSH","ARI")) & mlb_pos %in% c("RF","CF","LF")) %>% 
+  ggplot(aes(x=factor(week(date)), y=Pts, color = mlb_team)) +
+  geom_boxplot()+
+  facet_wrap(~mlb_name)
+
+player_game %>% 
+  filter((mlb_team %in% c("WSH","ARI")) & !mlb_pos == "P") %>% 
+  ggplot(aes(x=date, y=Pts))+
+  geom_point()+
+  facet_wrap(~mlb_name)
 
 # Scoring Analysis --------------------------------------------------------
 

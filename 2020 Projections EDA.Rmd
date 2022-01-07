@@ -10,30 +10,30 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(tidyverse)
 library(readr)
+library(knitr)
 
 all_rankings <- read_csv("./fantasy_2020/FantasyPros_Fantasy_Baseball_Rankings_ALL.csv")
 ```
 ```{r explore_all_rankings}
-all_rankings
+all_rankings %>% 
+  head()
 
 ```
 
 ```{r explore_hitter_projs}
-
+# Fantasy Pros Hitter Projections
 proj_hitters <- read_csv("./fantasy_2020/FantasyPros_2020_Projections_H.csv")
 
 
-proj_hitters
-
-# select scoring categories
+# select scoring categories, and ABs
 proj_hitters %>% 
-  select(Player,Team,Positions,R,HR,RBI,SB,OBP)
+  select(Player,Team,Positions,AB,R,HR,RBI,SB,OBP)
 
 
 ```
 
 ```{r explore_pitcher_projs}
-
+# Fantasy Pros Pitcher Projections
 proj_pitchers <- read_csv("./fantasy_2020/FantasyPros_2020_Projections_P.csv")
 
 # select scoring categories (using IP as a proxy for QS)
@@ -73,7 +73,166 @@ corrplot::corrplot(rp_stat_correlations,
 # Get season stats and calculate fantasy scoring based on (5x5 OBP / QS league)
 
 
+batting_lahman <- read_csv("./fantasy_2020/Batting.csv",guess_max = 100000)
+
+# Preview Hitter Scoring categories from 2018
+batting_lahman %>% 
+    filter(yearID == 2018,
+           AB > 300) %>% 
+  mutate("OBP" = round((H+BB+HBP)/(AB+BB+HBP+SF),3)) %>% 
+  select(playerID, yearID, G, AB, R, HR, RBI,SB,OBP) %>% 
+  View()
+
+
+# Determine the TAM of each scoring category
+
+batting_lahman %>% 
+  filter(yearID == 2018,
+           AB > 300) %>% 
+  summarise("AB"=sum(AB),
+            "H" = sum(H),
+            "R" = sum(R),
+            "HR" = sum(HR),
+            "RBI" = sum(RBI),
+            "SB" = sum(AB),
+            "BB" = sum(BB),
+            "HBP" = sum(HBP),
+            "SF" = sum(SF)) %>% 
+  mutate("PA" = AB+BB+HBP+SF,
+         "RB" = H+BB+HBP) %>% 
+  select(PA,R,HR,RBI,SB,RB)
+
+
+
+
+batting_lahman %>% 
+  filter(yearID > 2008,
+           AB > 300) %>%
+  group_by(yearID) %>% 
+  summarise("AB"=sum(AB),
+            "H" = sum(H),
+            "R" = sum(R),
+            "HR" = sum(HR),
+            "RBI" = sum(RBI),
+            "SB" = sum(AB),
+            "BB" = sum(BB),
+            "HBP" = sum(HBP),
+            "SF" = sum(SF)) %>% 
+  mutate("PA" = AB+BB+HBP+SF,
+         "RB" = H+BB+HBP) %>% 
+  select(yearID,PA,R,HR,RBI,SB,RB)
+
+batting_lahman %>% 
+  filter(yearID > 2012) %>% 
+  group_by(yearID,playerID) %>% 
+  summarise("AB"=sum(AB),
+            "H" = sum(H),
+            "R" = sum(R),
+            "HR" = sum(HR),
+            "RBI" = sum(RBI),
+            "SB" = sum(SB),
+            "BB" = sum(BB),
+            "HBP" = sum(HBP),
+            "SF" = sum(SF)) %>% 
+  mutate("PA" = AB+BB+HBP+SF,
+         "RB" = H+BB+HBP,
+         "OBS" = round(RB/PA,3)) %>% 
+  filter(PA > 400) %>%
+  select(yearID,playerID, R, HR, RBI, SB, OBS) %>%  
+  pivot_longer(cols = c("R","HR","RBI","SB","OBS"), 
+    names_to = "metric", 
+    values_to = "value") %>% ungroup() %>% 
+  group_by(yearID, metric) %>% 
+  top_n(189, value) %>%
+  ungroup() %>% 
+  group_by(yearID, metric) %>% 
+  summarise("TAP" = sum(value)) %>% 
+  ggplot(aes(x=yearID, y=TAP, color = metric))+
+  geom_line()+
+  facet_wrap(~metric)
+  
+# Need to not sum obp, and consider ballparking each cat based on 3 year trend
+
+
+
 ```
 
+League Format:  
+* Head-to-head matchups where you get a W for each of the 12 scoring category that you defeat your opponent, an L for each category you lose, and a Tie for the rest.  
+* Six hitting categories: Runs, Runs Batted In, Stolen Bases, Home Runs, and On-base Percentage  
+* Six pitching categories: Strikeouts, Quality Starts, Saves, ERA, and WHIP  
 
+Rosters:  
+* 26 players total  
+* 21 starters (13 batters, 8 pitchers) 
+* 5 bench positions  
+* 2 slots for players on the Injured List, which do not count against the 26-player limit.  
+
+Evaluating the Market:  
+Since there are 12 teams in the league, and each team holds a roster of 26 players, there should be 312 rostered players at all times, plus a potential 24 players in the injury slots. For this reason, I only ought to be concerned with the 350(ish) most productive players.  
+
+I also need to consider splitting batters and pitchers, since no one player (save for a couple exceptions), contribute to both scoring categories. From some quick research, I'm estimating that most 26-player rosters will hold between 14-15 batters and 11-12 pitchers. For the sake of estimation, I'll split the player pool 54/46 in favor of the batters. In other words, what I'll consider to be the top 350 players will be comprised of the top 189 batters, and the top 161 pitchers.
+
+
+Total Production:  
+To understand the relative value each player represents to my fantasy baseball team, I will try to estimate the total value generating by the top 350 players in a given year. which I'll call the Total Addressible Points (TAP). This will help identify the relative value of each rosterable player against the total market. 
+
+Estimating the TAP:  
+For each of the past few years, calculate each player's Fantasy Points, and calculate the sum of the top 350's scoring.
+
+
+```{r fig.height=15}
+
+fg_hitters <- read_csv("FanGraphs Leaderboard Hitters.csv")
+fg_pitchers <- read_csv("FanGraphs Leaderboard Pitchers.csv")
+
+fg_rankings <- bind_rows(fg_hitters,fg_pitchers) %>% 
+  mutate(value = Dollars,
+         "is_negative" = case_when(str_detect(string = value,
+                                              pattern = fixed("($")) ~ 1,
+                                   TRUE ~ 0),
+         "remove_first" = str_remove(string = value,
+                                     pattern = fixed("($")),
+         "remove_second" = str_remove(string = remove_first,
+                                      pattern =  fixed(")")),
+         "remove_third" = as.numeric(str_remove(string = remove_second,
+                                     pattern = fixed("$"))),
+         "value" = ifelse(is_negative == 1, -1*remove_third, remove_third)) %>% 
+  select(-remove_first,-remove_second,-remove_third)
+
+rm(list=c("fg_hitters","fg_pitchers"))
+
+# Select Top 350 most valuable players, plot distribution of value by position
+fg_rankings %>% 
+  filter(POS %in% c("SP","RP","OF","C","2B","SS","3B","1B")) %>% 
+  top_n(value, n = 350) %>% 
+  ggplot(aes(x=value))+
+  geom_histogram()+
+  facet_wrap(~POS)
+
+# Summary of top 350 players by position with average value
+fg_rankings %>% 
+  filter(POS %in% c("SP","RP","OF","C","2B","SS","3B","1B")) %>% 
+  top_n(value, n = 350) %>% 
+  group_by(POS) %>% 
+  summarize("Players" = n(),
+            "Avg Value" = mean(value)) %>% 
+  arrange(desc(Players)) %>% 
+  kable()
+
+fg_rankings %>% 
+  filter(POS %in% c("SP","RP","OF","C","2B","SS","3B","1B")) %>% 
+  group_by(POS) %>% 
+  top_n(value,n = 20) %>%
+  ungroup() %>% 
+    ggplot(aes(x=reorder(PlayerName,value),y=value,color=POS))+
+  geom_point()+
+  coord_flip()+
+  facet_wrap(~POS,scales = "free_y")+
+  ggtitle("FanGraphs Dollar Value",
+          subtitle = "Top 20 By Position")
+
+
+
+```
 
